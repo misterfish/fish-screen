@@ -197,7 +197,7 @@ void load_data() {
             data_push(0, t);
         }
         else {
-            piep;
+            warnp("Unexpcted: state is %s", state);
         }
     }
     pclose(f);
@@ -483,7 +483,7 @@ int get_screen_version() {
         version_maj == -1 ? 0 :
         version_min == -1 ? 0 :
         version_maj < 4 ? VERSION_OLD :
-        (version_maj == 4 && version_min < 2) ? VERSION_OLD :
+        (version_maj == 4 && version_min < 1) ? VERSION_OLD :
         VERSION_NEW;
 }
 
