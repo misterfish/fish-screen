@@ -1,0 +1,4 @@
+*.o
+fish-screen
+*.swo
+*.swp
