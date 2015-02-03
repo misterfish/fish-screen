@@ -1,26 +1,43 @@
-fish_util_dir = fish-lib-util/fish-util
-fish_utils_dir = fish-lib-util/fish-utils
+fishutilx_topdir = fish-lib-util
+fishutil_dir = $(fishutilx_topdir)/fish-util
+fishutils_dir = $(fishutilx_topdir)/fish-utils
 
-fish_util_flags = 	$(shell cat $(fish_util_dir)/flags)
-fish_util_o = 		$(shell find $(fish_util_dir)/.deps -iname '*.o' | sed 's/\.deps\///')
+cc = gcc -std=c99 -Wall
 
-fish_utils_flags = 	$(shell cat $(fish_utils_dir)/flags)
-fish_utils_o = 		$(shell find $(fish_utils_dir)/.deps -iname '*.o' | sed 's/\.deps\///')
+modules = fishutil fishutils
 
-WARN=-Wall
-FLAGS_C = -std=c99 $(WARN) -lpcre -I$(fish_util_dir) -I$(fish_utils_dir) $(fish_util_flags) $(fish_utils_flags)
+# static, submodule.
 
-all: fish-screen
+# sets <module>_inc, <module>_obj, <module>_src_dep, <module>_ld, and <module>_all.
+include $(fishutil_dir)/fishutil.mk
+include $(fishutils_dir)/fishutils.mk
+VPATH=$(fishutil_dir) $(fishutils_dir)
 
-fish-screen: fish-util fish-utils main.c 
-	gcc $(FLAGS_C) $(fish_util_o) $(fish_utils_o) main.c -o fish-screen
+inc		= $(foreach i,$(modules),$(${i}_inc))
+all		= $(foreach i,$(modules),$(${i}_all))
 
-fish-util: 
-	sh -c 'cd fish-lib-util/fish-util; make'
+pre		:= $(fishutil_obj) $(fishutils_obj)
+main		:= fish-screen
+src		:= $(main).c
 
-fish-utils:
-	sh -c 'cd fish-lib-util/fish-utils; make'
+all: $(pre) $(main)
+
+$(main): $(fishutil_obj) $(fishutils_obj) $(src)
+	$(cc) $(all) $(main).c -o $(main)
+
+$(fishutil_obj): $(fishutil_src_dep)
+	make -C $(fishutilx_topdir)
+
+$(fishutils_obj): $(fishutils_src_dep)
+	make -C $(fishutilx_topdir)
 
 clean: 
 	rm -f *.o
-	rm -f fish-screen
+	rm -f *.so
+	cd $(fishutilx_topdir) && make clean
+	rm -f $(main)
+
+mrproper: clean
+	cd $(fishutilx_topdir) && make mrproper
+
+.PHONY: all clean mrproper

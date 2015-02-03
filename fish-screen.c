@@ -197,7 +197,7 @@ void load_data() {
             data_push(0, t);
         }
         else {
-            warnp("Unexpcted: state is %s", state);
+            iwarn_msg("Unexpcted: state is %s", state);
         }
     }
     pclose(f);
