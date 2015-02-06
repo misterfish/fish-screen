@@ -1,9 +1,5 @@
 #define _GNU_SOURCE
 
-#define cpsize_t sizeof(char*)
-#define csize_t sizeof(char)
-#define scr_size_t sizeof(screen)
-
 #define LIMIT_HOSTNAME 20
 #define LIMIT_NAME_NEW 20
 
@@ -14,60 +10,105 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h> // exec
+#include <signal.h>
 
-// libc6
+#include <stdarg.h>
+
 #include <argp.h>
 
-#include <pcre.h>
-
-//#define DEBUG
+#include <assert.h>
 
 #include <fish-util.h>
 #include <fish-utils.h>
 
-#define sct(type, name) struct type name = {0};
-#define try(x) if(x) { \
-        _();        \
-        const char *err = perr();       \
-        R(err);         \
-        warn("Error: %s", _s);         \
-    };
+#include "fish-screen.h"
 
-typedef struct screen {
-    int pid;
-    char *name;
-    char *state; // Detached/Attached
-    char *date;
-} screen;
-
-/* Is initted by compiler.
+/* For the adios err message, print ... if args are longer.
+ * Doing it on the cmd and each arg, instead of one ... at the end of the
+ * whole thing. 
+ * Which isn't that intuitive really.
  */
-struct {
-   bool create;
-   char *next_arg;
+#define ARG_PRINT_LENGTH 20
 
-   char *regex_or_name;
+#define sct(type, name) struct type name = {0};
 
-   char hostname[LIMIT_HOSTNAME];
+/* Try to exec. If fails, exit.
+ * Last arg to exec is NULL, so it's our last vararg too.
+ * ## to eat the preceding comma if empty. \
+ */
 
-   /* 
-    * data = {
-    *    vec: [ screen, screen, screen, ... ], // detached
-    *    vec: [ screen, screen, screen, ... ], // attached
-    * }
-    */
-   vec *data[2];
+#define adios(file, ...) do { \
+    cleanup_us(); \
+    cleanup_them(); \
+    execlp(file, file, ##__VA_ARGS__); \
+    /* we failed */ \
+    adios_failed(file, ##__VA_ARGS__); \
+} while (0);
 
-   int *pids;
-   char **names;
+/* First called with failed = false. Point is to clean up.
+ * If exec fails in macro, called again, with failed = true. Clean up again
+ * and exit.
+ */
+void adios_failed(char *file, ...) { 
+    fish_util_init();
+    fish_utils_init();
 
-   int total_num;
+    vec *args = vec_new();
+    int size = 0;
 
-   char *rl_l;
-   size_t rl_s; // no init necessary
+    int len; 
+    char *arg;
+    // without \0
+    len = strnlen(file, ARG_PRINT_LENGTH);
 
-   int version;
-} g;
+    arg = malloc(1 + len * sizeof(char));
+    // \0 guaranteed
+    snprintf(arg, len + 1, "%s", file);
+    size += len + 1;
+    vec_add(args, arg);
+    if (len == ARG_PRINT_LENGTH) { // too big
+        arg[len-1] = '.';
+        arg[len-2] = '.';
+        arg[len-3] = '.';
+    }
+
+    va_list ap; 
+    va_start(ap, file); 
+    int num_args = 1; // includes file
+    while ((arg = va_arg(ap, char*))) { 
+        len = strnlen(arg, ARG_PRINT_LENGTH); 
+        char *a = malloc(1 + 1 + len * sizeof(char));
+        snprintf(a, len + 1 + 1, " %s", arg);
+        size += len + 1 + 1;
+        vec_add(args, a);
+        if (len == ARG_PRINT_LENGTH) { // too long
+            a[len-1 + 1] = '.';
+            a[len-2 + 1] = '.';
+            a[len-3 + 1] = '.';
+        } 
+        num_args++;
+    } 
+    va_end(ap);
+
+    char *msg = str(size); 
+    for (int i = 0; i < num_args; i++) {
+        strcat(msg, (char*)vec_get(args, i)); //-snprintf-
+    }
+
+    vec_destroy_deep(args);
+
+    const char *pe = perr();
+
+    _();
+    BR(msg);
+    warn("Couldn't run command «%s» (%s)", _s, pe);
+
+    free(msg);
+
+    cleanup_them();
+
+    exit(1); 
+}
 
 error_t argp_parser(int key, char *arg, struct argp_state *state) {
     if (key == 'n') {
@@ -106,8 +147,6 @@ static struct argp_option options[] = {
     {0}
 };
 
-int get_screen_version();
-
 void data_init() {
     g.data[0] = vec_new();
     g.data[1] = vec_new();
@@ -115,19 +154,22 @@ void data_init() {
 
 // 0 -- detached
 // 1 -- attached
-void data_push(int which, screen *s) {
+void data_push(int which, struct screen *s) {
     vec *v = g.data[which];
     vec_add(v, s);
 }
 
-void cleanup() {
-    fish_util_cleanup();
-    fish_utils_cleanup();
+void cleanup_us() {
     vec_destroy_flags(g.data[0], VEC_DESTROY_DEEP);
     vec_destroy_flags(g.data[1], VEC_DESTROY_DEEP);
     free(g.rl_l);
     free(g.pids);
     free(g.names);
+}
+
+void cleanup_them() {
+    fish_utils_cleanup();
+    fish_util_cleanup();
 }
 
 void load_data() {
@@ -144,7 +186,7 @@ void load_data() {
         if (g.version == VERSION_OLD) {
             re = "^ \\s* (\\d+) \\. (.+?) \\s+ ( \\( .+? \\) ) "; //x
 
-            if (! match_matches_flags(g.rl_l, re, matches, PCRE_EXTENDED)) 
+            if (! match_matches_flags(g.rl_l, re, matches, F_REGEX_EXTENDED)) 
                 continue;
 
             // malloc'd => ok to store
@@ -154,7 +196,7 @@ void load_data() {
         }
         else if (g.version == VERSION_NEW) {
             re = "^ \\s* (\\d+) \\. (.+?) \\s+ ( \\(.+?\\) ) \\s+ ( \\(.+?\\) ) "; //x
-            if (! match_matches_flags(g.rl_l, re, matches, PCRE_EXTENDED)) 
+            if (! match_matches_flags(g.rl_l, re, matches, F_REGEX_EXTENDED)) 
                 continue;
 
             // malloc'd => ok to store
@@ -181,7 +223,7 @@ void load_data() {
             if (! match(name, g.regex_or_name)) continue;
         }
 
-        screen *t = malloc(scr_size_t);
+        struct screen *t = malloc(sizeof(struct screen));
         t->pid = pid;
 
         t->name = name;
@@ -212,7 +254,7 @@ void check_has_match(bool *has_match, bool *exec, bool *tried_new) {
 
         if (!g.create) {
             if (! g.regex_or_name) 
-                _exit(1);
+                exit_with_cleanup(1);
 
             _();
             CY(g.regex_or_name);
@@ -261,7 +303,7 @@ void menu() {
         vec *v = g.data[which];
         for (int i = 0; i < vec_size(v); i++) {
             idx++;
-            screen *scr = vec_get(v, i);
+            struct screen *scr = vec_get(v, i);
 
             menu_line(idx, scr->pid, scr->name, which);
         }
@@ -280,7 +322,7 @@ int load_pids_and_names() {
     for (int which = 0; which < 2; which++) {
         for (int i = 0; i < n[which]; i++) {
             vec *v = g.data[which];
-            screen *scr = (screen*) vec_get(v, i);
+            struct screen *scr = (struct screen*) vec_get(v, i);
             idx++;
             debug("idx %d, which %d, storing pid %d, name %s", idx, which, scr->pid, scr->name);
             g.pids[idx] = scr->pid;
@@ -293,19 +335,30 @@ int load_pids_and_names() {
 }
 
 void screen_new(char *name) { // taint
-    // use system path
-    try(
-        execlp("screen", "screen", "-S", name, NULL)
-    );
+    adios("screen", "-S", name, NULL);
+
+    piep;
 }
 
 void screen_go(int pid) {
     debug("going to pid %d", pid);
-    char *p = str(int_length(pid) + 1);
+    /* Have to use static, or else it's hard to free it (it's passed as an
+     * arg to adios).
+     */
+    static char p[100] = {0};
+    assert(int_length(pid) + 1 < 100);
     sprintf(p, "%d", pid);
-    try(
-        execlp("screen", "screen", "-rd", p, NULL)
-   );
+    adios("screen", "-rd", p, NULL);
+
+    /* To test failure
+    adios("screen12312838123812381283", "-rd1234567891234567890", p, NULL);
+    adios("screen12312838123812381283", "as", p, NULL);
+    adios("screen123", "-rd1234567891234567890", p, NULL);
+     */
+}
+ 
+void signal_handler() {
+    exit_with_cleanup();
 }
 
 void init() {
@@ -316,6 +369,8 @@ void init() {
     verbose_cmds(false);
 #endif
     g.rl_l = NULL;
+    autoflush();
+    f_sig(SIGINT, signal_handler);
 
     g.version = get_screen_version();
     if (!g.version)
@@ -342,7 +397,7 @@ int get_sel() {
 
         int rc = getline(&g.rl_l, &g.rl_s, stdin);
         if (rc == -1) 
-            _exit(1);
+            exit_with_cleanup(1);
 
         chop(g.rl_l);
         if (match(g.rl_l, "^ \\s* $")) continue;
@@ -363,12 +418,14 @@ int get_sel() {
             if (i <= num && i > 0) 
                 sel = i - 1; // got it
         }
-        // regex match
+        /* Regex match
+         */
         else {
             for (int i = 0; i < num; i++) {
                 char *name = g.names[i];
                 debug("checking name: %s", name);
-                // take first match
+                /* Take first match
+                 */
                 if (match(name, g.rl_l)) {
                     sel = i;
                     break;
@@ -379,16 +436,17 @@ int get_sel() {
     return sel;
 }
 
-void _exit(int status) {
-    cleanup();
+void exit_with_cleanup(int status) {
+    cleanup_us();
+    cleanup_them();
     exit(status);
 }
 
 int main(int argc, char **argv) {
     init();
 
-    /* Can also init with: static struct argp args */
-    struct argp args = {0};
+    sct(argp, args)
+
     args.args_doc = "[regex/name]"; // text in usage msg, after args
     //args.doc = "Before options \v after options"; // help msg
 
@@ -397,13 +455,13 @@ int main(int argc, char **argv) {
 
     int arg_index;
 
-    try(
-        argp_parse(&args, argc, argv, 
+    if (argp_parse(&args, argc, argv, 
             0,
             &arg_index, 
             0 // input = extra data for parsing function
             )
     )
+        piepr1;
 
     // doesn't happen i think
     if (arg_index < argc) {
@@ -423,24 +481,20 @@ int main(int argc, char **argv) {
     check_has_match(&has_match, &do_exec, &tried_new);
     if (! has_match) {
         if (do_exec) {
-            // use system path
-            try(
-                execlp("screen", "screen", "-R", g.regex_or_name, NULL)
-            );
+            adios("screen", "-R", g.regex_or_name, NULL);
         }
         else {
-            _exit(1);
+            exit_with_cleanup(1);
         }
-
-        // done
+        // done.
     }
 
     // has_match:
     int i;
     if ((i = vec_size(g.data[0])))
-        debug("Last detached is %s", ((screen*) (vec_last(g.data[0])))->name);
+        debug("Last detached is %s", ((struct screen*) (vec_last(g.data[0])))->name);
     if ((i = vec_size(g.data[1])))
-        debug("Last attached is %s", ((screen*) (vec_last(g.data[1])))->name);
+        debug("Last attached is %s", ((struct screen*) (vec_last(g.data[1])))->name);
 
     int num = load_pids_and_names();
     g.total_num = num;
@@ -456,7 +510,7 @@ int main(int argc, char **argv) {
 
     int pid = g.pids[sel];
     debug("Got sel: %d, pid %d", sel, pid);
-    screen_go(pid); //exec, how to cleanup? XX
+    screen_go(pid); 
 }
 
 int get_screen_version() {
@@ -465,20 +519,21 @@ int get_screen_version() {
     char *cmd = "screen -v";
     sys_die(0); // exit value is 1 for some reason
     FILE *f = sysr(cmd);
-    if (!f) return 0;
+    if (!f) 
+        return 0;
     char *re = "^ Screen \\s+ version \\s+ (\\d+) \\. (\\d+) "; //x
 
     char *matches[3];
     while (getline(&g.rl_l, &g.rl_s, f) != -1) {
-        if (match_matches_flags(g.rl_l, re, matches, PCRE_EXTENDED))  {
+        if (match_matches_flags(g.rl_l, re, matches, F_REGEX_EXTENDED))  {
             char *v1 = matches[1];
             char *v2 = matches[2];
             version_maj = atoi(v1);
             version_min = atoi(v2);
-            //info ("Maj %d min %d", version_maj, version_min);
             break;
         }
     }
+    sysclose_f(f, cmd, F_QUIET); // silence warning
     return 
         version_maj == -1 ? 0 :
         version_min == -1 ? 0 :
@@ -486,5 +541,4 @@ int get_screen_version() {
         (version_maj == 4 && version_min < 1) ? VERSION_OLD :
         VERSION_NEW;
 }
-
 
