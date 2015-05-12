@@ -173,7 +173,7 @@ void cleanup_them() {
 }
 
 void load_data() {
-    sys_die(true);
+    f_sys_die(true);
 
     FILE *f = sysr("screen -ls");
 
@@ -239,7 +239,7 @@ void load_data() {
             data_push(0, t);
         }
         else {
-            iwarn_msg("Unexpcted: state is %s", state);
+            iwarn("Unexpcted: state is %s", state);
         }
     }
     pclose(f);
@@ -260,7 +260,7 @@ void check_has_match(bool *has_match, bool *exec, bool *tried_new) {
             CY(g.regex_or_name);
             ask("Create %s", _s);
 
-            if (yes_no_flags(F_DEFAULT_YES, 0)) 
+            if (f_yes_no_flags(F_DEFAULT_YES, 0)) 
                 *exec = true;
 
             *tried_new = true;
@@ -272,7 +272,7 @@ void check_has_match(bool *has_match, bool *exec, bool *tried_new) {
 }
 
 char *menu_field(int length, int pid, int state) {
-    int len = int_length(pid);
+    int len = f_int_length(pid);
     char *s = str(len + 1);
     sprintf(s, "%d", pid);
     
@@ -346,7 +346,7 @@ void screen_go(int pid) {
      * arg to adios).
      */
     static char p[100] = {0};
-    assert(int_length(pid) + 1 < 100);
+    assert(f_int_length(pid) + 1 < 100);
     sprintf(p, "%d", pid);
     adios("screen", "-rd", p, NULL);
 
@@ -364,12 +364,12 @@ void signal_handler() {
 void init() {
     fish_utils_init();
 #ifdef DEBUG
-    verbose_cmds(true);
+    f_verbose_cmds(true);
 #else
-    verbose_cmds(false);
+    f_verbose_cmds(false);
 #endif
     g.rl_l = NULL;
-    autoflush();
+    f_autoflush();
     f_sig(SIGINT, signal_handler);
 
     g.version = get_screen_version();
@@ -380,7 +380,7 @@ void init() {
     
     data_init();
     if (gethostname(g.hostname, LIMIT_HOSTNAME)) {
-        warn(perr());
+        warn_perr("");
         strcpy(g.hostname, "unknown");
     }
 
@@ -399,13 +399,13 @@ int get_sel() {
         if (rc == -1) 
             exit_with_cleanup(1);
 
-        chop(g.rl_l);
+        f_chop(g.rl_l);
         if (match(g.rl_l, "^ \\s* $")) continue;
 
         if (!strncmp(g.rl_l, "n\0", 2)) {
             printf("name: ");
             if (getline(&g.rl_l, &g.rl_s, stdin) != -1) {
-                chop(g.rl_l);
+                f_chop(g.rl_l);
 
                 // check if exists XX
 
@@ -413,7 +413,7 @@ int get_sel() {
             }
             // if it works, it execs, so done, else loops again
         }
-        else if (is_int_strn(g.rl_l, strlen(g.rl_l))) {
+        else if (f_is_int_strn(g.rl_l, strlen(g.rl_l))) {
             int i = atoi(g.rl_l);
             if (i <= num && i > 0) 
                 sel = i - 1; // got it
@@ -517,7 +517,7 @@ int get_screen_version() {
     int version_maj, version_min = -1;
 
     char *cmd = "screen -v";
-    sys_die(0); // exit value is 1 for some reason
+    f_sys_die(0); // exit value is 1 for some reason
     FILE *f = sysr(cmd);
     if (!f) 
         return 0;

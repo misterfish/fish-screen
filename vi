@@ -1,0 +1,16 @@
+#!/bin/bash
+
+. "$(dirname "$0")"/functions
+
+USAGE="Usage: $0"
+
+arg="$1"
+
+if [ "$arg" = -h ]; then
+    warn $USAGE
+    exit 0
+else
+    /bin/true
+fi
+
+cmd vido -t c -c 
