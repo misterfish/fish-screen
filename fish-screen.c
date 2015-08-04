@@ -160,8 +160,8 @@ void data_push(int which, struct screen *s) {
 }
 
 void cleanup_us() {
-    vec_destroy_flags(g.data[0], VEC_DESTROY_DEEP);
-    vec_destroy_flags(g.data[1], VEC_DESTROY_DEEP);
+    vec_destroy_f(g.data[0], VEC_DESTROY_DEEP);
+    vec_destroy_f(g.data[1], VEC_DESTROY_DEEP);
     free(g.rl_l);
     free(g.pids);
     free(g.names);
