@@ -49,7 +49,7 @@ submodules:
 	    cd ..; \
 	done;
 
-$(main): $(src) $(hdr)
+$(main): $(src) $(hdr) $(obj)
 	@#echo $(CC) $(CFLAGS) $(LDFLAGS) $(obj) -o $(main)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(src) $(obj) -o $(main)
 
