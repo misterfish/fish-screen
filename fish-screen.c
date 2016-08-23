@@ -6,6 +6,8 @@
 #define VERSION_OLD 0x1
 #define VERSION_NEW 0x2
 
+#define ENV_TERM "xterm-256color"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,8 +46,6 @@
     /* we failed */ \
     adios_failed(file, ##__VA_ARGS__); \
 } while (0);
-
-#define ENV_TERM "xterm-256color"
 
 /* First called with failed = false. Point is to clean up.
  * If exec fails in macro, called again, with failed = true. Clean up again
@@ -116,6 +116,16 @@ error_t argp_parser(int key, char *arg, struct argp_state *state) {
     if (key == 'n') {
         g.create = true;
     }
+    else if (key == 'p') {
+        int as_int = atoi(arg);
+        if (!f_is_int_str(arg) || as_int <= 0) {
+            _();
+            BR(arg);
+            err("Need positive integer for pid (got %s)", _s);
+        }
+        // --- posix: signed integer.
+        g.pid = (pid_t) as_int;
+    }
     else if (key == 'h') {
         argp_state_help(state, stdout, ARGP_HELP_STD_HELP);
         exit(0);
@@ -132,10 +142,10 @@ error_t argp_parser(int key, char *arg, struct argp_state *state) {
 static struct argp_option options[] = {
     {
         0,
-        'h', // 0, //'n', // key
-        0, // name
-        OPTION_ARG_OPTIONAL, // flags
-        0, // text
+        'h',
+        0,
+        OPTION_ARG_OPTIONAL,
+        0,
         0
     }, 
     {
@@ -144,6 +154,14 @@ static struct argp_option options[] = {
         0, // name (for long usage message, leave as 0 for optional args)
         OPTION_ARG_OPTIONAL, // flags
         "Create new screen if no match.",
+        0 // group
+    }, 
+    {
+        "pid",
+        'p',
+        "pid",
+        0, // flags
+        "Attach to the screen with this pid.",
         0
     }, 
     {0}
@@ -221,8 +239,13 @@ void load_data() {
             name = " ";
         }
 
-        if (g.regex_or_name) {
-            if (! match(name, g.regex_or_name)) continue;
+        if (g.pid) {
+            if (pid != g.pid)
+                continue;
+        }
+        else if (g.regex_or_name) {
+            if (! match(name, g.regex_or_name))
+                continue;
         }
 
         struct screen *t = malloc(sizeof(struct screen));

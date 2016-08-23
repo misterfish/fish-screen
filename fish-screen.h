@@ -10,6 +10,7 @@ struct {
    char *next_arg;
 
    char *regex_or_name;
+   pid_t pid;
 
    char hostname[LIMIT_HOSTNAME];
 
