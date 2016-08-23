@@ -45,6 +45,8 @@
     adios_failed(file, ##__VA_ARGS__); \
 } while (0);
 
+#define ENV_TERM "xterm-256color"
+
 /* First called with failed = false. Point is to clean up.
  * If exec fails in macro, called again, with failed = true. Clean up again
  * and exit.
@@ -481,7 +483,7 @@ int main(int argc, char **argv) {
     check_has_match(&has_match, &do_exec, &tried_new);
     if (! has_match) {
         if (do_exec) {
-            adios("screen", "-R", g.regex_or_name, NULL);
+            adios("screen", "-R", g.regex_or_name, "-T", ENV_TERM, NULL);
         }
         else {
             exit_with_cleanup(1);
