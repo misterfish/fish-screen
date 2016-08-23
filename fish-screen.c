@@ -409,9 +409,14 @@ int get_sel() {
             if (getline(&g.rl_l, &g.rl_s, stdin) != -1) {
                 f_chop(g.rl_l);
 
+                size_t len = strlen(g.rl_l); // \0 guaranteed
+                // This variable will leak -- unavoidable.
+                char *name = str(len + 1);
+                sprintf(name, "%s", g.rl_l);
+
                 // check if exists XX
 
-                screen_new(g.rl_l); // done
+                screen_new(name); // done
             }
             // if it works, it execs, so done, else loops again
         }
