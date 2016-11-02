@@ -1,3 +1,0 @@
-[submodule "fish-lib-util"]
-	path = fish-lib-util
-	url = ssh://git@github.com/misterfish/fish-lib-util
