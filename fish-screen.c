@@ -27,7 +27,7 @@
 
 /* For the adios err message, print ... if args are longer.
  * Doing it on the cmd and each arg, instead of one ... at the end of the
- * whole thing. 
+ * whole thing.
  * Which isn't that intuitive really.
  */
 #define ARG_PRINT_LENGTH 20
@@ -51,14 +51,14 @@
  * If exec fails in macro, called again, with failed = true. Clean up again
  * and exit.
  */
-void adios_failed(char *file, ...) { 
+void adios_failed(char *file, ...) {
     fish_util_init();
     fish_utils_init();
 
     vec *args = vec_new();
     int size = 0;
 
-    int len; 
+    int len;
     char *arg;
     // without \0
     len = strnlen(file, ARG_PRINT_LENGTH);
@@ -74,11 +74,11 @@ void adios_failed(char *file, ...) {
         arg[len-3] = '.';
     }
 
-    va_list ap; 
-    va_start(ap, file); 
+    va_list ap;
+    va_start(ap, file);
     int num_args = 1; // includes file
-    while ((arg = va_arg(ap, char*))) { 
-        len = strnlen(arg, ARG_PRINT_LENGTH); 
+    while ((arg = va_arg(ap, char*))) {
+        len = strnlen(arg, ARG_PRINT_LENGTH);
         char *a = malloc(1 + 1 + len * sizeof(char));
         snprintf(a, len + 1 + 1, " %s", arg);
         size += len + 1 + 1;
@@ -87,12 +87,12 @@ void adios_failed(char *file, ...) {
             a[len-1 + 1] = '.';
             a[len-2 + 1] = '.';
             a[len-3 + 1] = '.';
-        } 
+        }
         num_args++;
-    } 
+    }
     va_end(ap);
 
-    char *msg = str(size); 
+    char *msg = str(size);
     for (int i = 0; i < num_args; i++) {
         strcat(msg, (char*)vec_get(args, i)); //-snprintf-
     }
@@ -109,7 +109,7 @@ void adios_failed(char *file, ...) {
 
     cleanup_them();
 
-    exit(1); 
+    exit(1);
 }
 
 error_t argp_parser(int key, char *arg, struct argp_state *state) {
@@ -130,7 +130,7 @@ error_t argp_parser(int key, char *arg, struct argp_state *state) {
         argp_state_help(state, stdout, ARGP_HELP_STD_HELP);
         exit(0);
     }
-    else if (key == ARGP_KEY_ARG) { 
+    else if (key == ARGP_KEY_ARG) {
         // assuming not cleaned up.
         g.next_arg = arg;
     }
@@ -147,7 +147,7 @@ static struct argp_option options[] = {
         OPTION_ARG_OPTIONAL,
         0,
         0
-    }, 
+    },
     {
         "new", // long opt (--new)
         'n', // short opt (-n)
@@ -155,7 +155,7 @@ static struct argp_option options[] = {
         OPTION_ARG_OPTIONAL, // flags
         "Create new screen if no match.",
         0 // group
-    }, 
+    },
     {
         "pid",
         'p',
@@ -163,7 +163,7 @@ static struct argp_option options[] = {
         0, // flags
         "Attach to the screen with this pid.",
         0
-    }, 
+    },
     {0}
 };
 
@@ -206,7 +206,7 @@ void load_data() {
         if (g.version == VERSION_OLD) {
             re = "^ \\s* (\\d+) \\. (.+?) \\s+ ( \\( .+? \\) ) "; //x
 
-            if (! match_matches_flags(g.rl_l, re, matches, F_REGEX_EXTENDED)) 
+            if (! match_matches_flags(g.rl_l, re, matches, F_REGEX_EXTENDED))
                 continue;
 
             // malloc'd => ok to store
@@ -216,7 +216,7 @@ void load_data() {
         }
         else if (g.version == VERSION_NEW) {
             re = "^ \\s* (\\d+) \\. (.+?) \\s+ ( \\(.+?\\) ) \\s+ ( \\(.+?\\) ) "; //x
-            if (! match_matches_flags(g.rl_l, re, matches, F_REGEX_EXTENDED)) 
+            if (! match_matches_flags(g.rl_l, re, matches, F_REGEX_EXTENDED))
                 continue;
 
             // malloc'd => ok to store
@@ -278,14 +278,14 @@ void check_has_match(bool *has_match, bool *exec, bool *tried_new) {
         *tried_new = false;
 
         if (!g.create) {
-            if (! g.regex_or_name) 
+            if (! g.regex_or_name)
                 exit_with_cleanup(1);
 
             _();
             CY(g.regex_or_name);
             ask("Create %s", _s);
 
-            if (f_yes_no_flags(F_DEFAULT_YES, 0)) 
+            if (f_yes_no_flags(F_DEFAULT_YES, 0))
                 *exec = true;
 
             *tried_new = true;
@@ -300,7 +300,7 @@ char *menu_field(int length, int pid, int state) {
     int len = f_int_length(pid);
     char *s = str(len + 1);
     sprintf(s, "%d", pid);
-    
+
     char *f = f_field(length, s, len + 1);
     _();
     if (state == 0) CY(f);
@@ -381,7 +381,7 @@ void screen_go(int pid) {
     adios("screen123", "-rd1234567891234567890", p, NULL);
      */
 }
- 
+
 void signal_handler() {
     exit_with_cleanup();
 }
@@ -402,7 +402,7 @@ void init() {
         err("Couldn't get screen version.");
 
     g.total_num = 0;
-    
+
     data_init();
     if (gethostname(g.hostname, LIMIT_HOSTNAME)) {
         warn_perr("");
@@ -421,7 +421,7 @@ int get_sel() {
         printf("(1 - %d): ", num);
 
         int rc = getline(&g.rl_l, &g.rl_s, stdin);
-        if (rc == -1) 
+        if (rc == -1)
             exit_with_cleanup(1);
 
         f_chop(g.rl_l);
@@ -445,7 +445,7 @@ int get_sel() {
         }
         else if (f_is_int_strn(g.rl_l, strlen(g.rl_l))) {
             int i = atoi(g.rl_l);
-            if (i <= num && i > 0) 
+            if (i <= num && i > 0)
                 sel = i - 1; // got it
         }
         /* Regex match
@@ -485,9 +485,9 @@ int main(int argc, char **argv) {
 
     int arg_index;
 
-    if (argp_parse(&args, argc, argv, 
+    if (argp_parse(&args, argc, argv,
             0,
-            &arg_index, 
+            &arg_index,
             0 // input = extra data for parsing function
             )
     )
@@ -540,7 +540,7 @@ int main(int argc, char **argv) {
 
     int pid = g.pids[sel];
     debug("Got sel: %d, pid %d", sel, pid);
-    screen_go(pid); 
+    screen_go(pid);
 }
 
 int get_screen_version() {
@@ -549,7 +549,7 @@ int get_screen_version() {
     char *cmd = "screen -v";
     f_sys_die(0); // exit value is 1 for some reason
     FILE *f = sysr(cmd);
-    if (!f) 
+    if (!f)
         return 0;
     char *re = "^ Screen \\s+ version \\s+ (\\d+) \\. (\\d+) "; //x
 
@@ -564,7 +564,7 @@ int get_screen_version() {
         }
     }
     sysclose_f(f, cmd, F_QUIET); // silence warning
-    return 
+    return
         version_maj == -1 ? 0 :
         version_min == -1 ? 0 :
         version_maj < 4 ? VERSION_OLD :
