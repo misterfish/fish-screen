@@ -365,6 +365,10 @@ void screen_new(char *name) { // taint
     piep;
 }
 
+bool is_empty_string(const char *s) {
+    return !strncmp("", s, 1);
+}
+
 void screen_go(int pid, const char *name) {
     debug("going to pid %d name %s", pid, name);
     /* Have to use static, or else it's hard to free it (it's passed as an
@@ -372,7 +376,10 @@ void screen_go(int pid, const char *name) {
      */
     static char p[100] = {0};
     assert((size_t) f_int_length(pid) + 1 + strlen(name) + 1 < 100);
-    sprintf(p, "%d.%s", pid, name);
+    if (is_empty_string(name) || *name == ' ')
+        sprintf(p, "%d", pid);
+    else
+        sprintf(p, "%d.%s", pid, name);
     adios("screen", "-rd", p, NULL);
 
     /* To test failure
