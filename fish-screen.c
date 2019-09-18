@@ -365,14 +365,14 @@ void screen_new(char *name) { // taint
     piep;
 }
 
-void screen_go(int pid) {
-    debug("going to pid %d", pid);
+void screen_go(int pid, const char *name) {
+    debug("going to pid %d name %s", pid, name);
     /* Have to use static, or else it's hard to free it (it's passed as an
      * arg to adios).
      */
     static char p[100] = {0};
-    assert(f_int_length(pid) + 1 < 100);
-    sprintf(p, "%d", pid);
+    assert((size_t) f_int_length(pid) + 1 + strlen(name) + 1 < 100);
+    sprintf(p, "%d.%s", pid, name);
     adios("screen", "-rd", p, NULL);
 
     /* To test failure
@@ -526,6 +526,7 @@ int main(int argc, char **argv) {
     if ((i = vec_size(g.data[1])))
         debug("Last attached is %s", ((struct screen*) (vec_last(g.data[1])))->name);
 
+    // --- loads g.pids and g.names.
     int num = load_pids_and_names();
     g.total_num = num;
     debug("Loaded %d pids and names", num);
@@ -539,8 +540,9 @@ int main(int argc, char **argv) {
     }
 
     int pid = g.pids[sel];
+    char *name = g.names[sel];
     debug("Got sel: %d, pid %d", sel, pid);
-    screen_go(pid);
+    screen_go(pid, name);
 }
 
 int get_screen_version() {
@@ -571,4 +573,3 @@ int get_screen_version() {
         (version_maj == 4 && version_min < 1) ? VERSION_OLD :
         VERSION_NEW;
 }
-
