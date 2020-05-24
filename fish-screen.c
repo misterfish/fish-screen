@@ -47,6 +47,8 @@
     adios_failed(file, ##__VA_ARGS__); \
 } while (0);
 
+const int FIELD_WIDTH = 10;
+
 /* First called with failed = false. Point is to clean up.
  * If exec fails in macro, called again, with failed = true. Clean up again
  * and exit.
@@ -315,7 +317,7 @@ char *menu_field(int length, int pid, int state) {
 }
 
 void menu_line(int idx, int pid, char *name, int state) {
-    char *field = menu_field(6, pid, state);
+    char *field = menu_field(FIELD_WIDTH, pid, state);
     _();
     Y(name);
     printf("%2d. %s %s\n", idx, field, _s);
