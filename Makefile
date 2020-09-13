@@ -1,11 +1,11 @@
 # Use caps for vars which users are allowed to initialise from outside (and
 # CC, which is special).
 
-cc 		= gcc 
-CC 		= $(cc) 
+cc 		= gcc
+CC 		= $(cc)
 
-CFLAGS		+= -std=c99 
-LDFLAGS		?= 
+CFLAGS		+= -std=c99
+LDFLAGS		?=
 
 main		= fish-screen
 
@@ -29,7 +29,7 @@ LDFLAGS		+= $(foreach i,$(modules),$(${i}_ldflags))
 
 hdr		= $(main).h
 src		= $(main).c
-obj		= 
+obj		=
 
 ifneq ($(pkg_names),)
     # Check user has correct packages installed (and found by pkg-config).
@@ -42,7 +42,7 @@ endif
 
 all: submodules $(main)
 
-submodules: 
+submodules:
 	for i in "$(submodules)"; do \
 	    cd "$$i"; \
 	    make; \
@@ -50,22 +50,23 @@ submodules:
 	done;
 
 $(main): $(src) $(hdr) $(obj)
-	@#echo $(CC) $(CFLAGS) $(LDFLAGS) $(obj) -o $(main)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(src) $(obj) -o $(main)
+	# --- manually adding -lm again at the end because the order matters.
+	@#echo $(CC) $(CFLAGS) $(LDFLAGS) $(obj) -lm -o $(main)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(src) $(obj) -lm -o $(main)
 
-# Note that everything gets rebuilt if any header changes. 
+# Note that everything gets rebuilt if any header changes.
 # This is too tricky to try to avoid.
 $(obj): %.o: %.c $(hdr)
 	@echo $(CC) -c $< -o $@
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-clean: 
+clean:
 	rm -f *.o
 	rm -f *.so
 	cd $(fishutil_dir) && make clean
 	rm -f $(main)
 
-mrproper: clean 
+mrproper: clean
 	cd $(fishutil_dir) && make mrproper
 
 .PHONY: all clean mrproper
