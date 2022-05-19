@@ -8,6 +8,8 @@
 
 #define ENV_TERM "xterm-256color"
 
+#undef DEBUG
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -375,7 +377,7 @@ int load_pids_and_names () {
       debug ("idx %d, which %d, storing pid %d, name %s", idx, which, scr->pid, scr->name);
       g.pids[idx] = scr->pid;
       g.names[idx] = scr->name;
-      g.is_multi[idx] = which == state_multi_attached || state_multi_detached;
+      g.is_multi[idx] = (which == state_multi_attached) || (which == state_multi_detached);
     }
   }
 
@@ -394,20 +396,23 @@ bool is_empty_string (const char *s) {
 }
 
 void screen_go (int pid, const char *name, bool multi) {
-  debug ("going to pid %d name %s", pid, name);
+  debug ("going to pid %d name %s multi %d", pid, name, multi);
   /* Have to use static, or else it's hard to free it (it's passed as an
    * arg to adios).
    */
   static char p[100] = {0};
   assert ((size_t) f_int_length (pid) + 1 + strlen (name) + 1 < 100);
   if (is_empty_string (name) || *name == ' ') {
+    debug ("screen -rd %d", pid);
     sprintf (p, "%d", pid);
     adios ("screen", "-rd", p, NULL);
   }
   if (multi) {
+    debug ("screen -rd %s/%d.%s", getlogin (), pid, name);
     sprintf (p, "%s/%d.%s", getlogin (), pid, name);
     adios ("screen", "-r", p, NULL);
   }
+  debug ("screen -rd %d.%s", pid, name);
   sprintf (p, "%d.%s", pid, name);
   adios ("screen", "-rd", p, NULL);
 
