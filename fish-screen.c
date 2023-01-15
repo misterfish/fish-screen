@@ -266,6 +266,9 @@ void load_data () {
       data_push (state_multi_attached, t);
     else if (!strncmp (state, "(Multi, detached)", 17))
       data_push (state_multi_detached, t);
+    // --- ??) is a trigraph (whatever that is)
+    else if (!strncmp (state, "(Dead \?\?\?)", 10))
+      warn ("screen %d seems to be dead (try screen -wipe)", pid);
     else {
       iwarn ("Nou dat is gek: state is %s", state);
     }
